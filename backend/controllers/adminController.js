@@ -17,13 +17,14 @@ export const getAdminStats = async (req, res) => {
     const registeredUsers = await User.find({}).select('-password');
     const totalUsers = registeredUsers.length;
 
-    // Ensure database contains all 632 words from generateVocab with updated image URLs
+    // Seed initial vocabulary ONLY if database is completely empty
     const dbVocabCount = await Vocabulary.countDocuments();
-    if (dbVocabCount < allVocabulary.length) {
+    if (dbVocabCount === 0 && allVocabulary.length > 0) {
       for (const wordObj of allVocabulary) {
+        const { _id, id, ...cleanWord } = wordObj;
         await Vocabulary.updateOne(
-          { word: wordObj.word },
-          { $set: wordObj },
+          { word: cleanWord.word },
+          { $setOnInsert: cleanWord },
           { upsert: true }
         );
       }
