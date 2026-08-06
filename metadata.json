@@ -1,0 +1,6 @@
+{
+  "name": "A1 English Vocab Master",
+  "description": "Aplicación completa para aprender vocabulario de inglés nivel A1 CEFR con actividades interactivas, sistema de niveles, gamificación y panel de administración.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
