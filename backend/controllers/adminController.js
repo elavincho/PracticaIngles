@@ -1,6 +1,6 @@
 import User from '../models/User.js';
 import Vocabulary from '../models/Vocabulary.js';
-import { allVocabulary } from '../data/allVocabulary.js';
+import { allVocabulary, syncImageUrlToLocalFiles } from '../data/allVocabulary.js';
 import { checkDbConnection } from '../config/db.js';
 
 // Admin Stats
@@ -194,6 +194,9 @@ export const createWord = async (req, res) => {
     }
 
     const created = await Vocabulary.create(wordData);
+    if (created && created.imageUrl) {
+      syncImageUrlToLocalFiles(created.word, created.imageUrl, created);
+    }
     return res.status(201).json(created);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -221,11 +224,17 @@ export const updateWord = async (req, res) => {
     if (id && id.length === 24) {
       updated = await Vocabulary.findByIdAndUpdate(id, { $set: wordData }, { new: true });
     }
-    if (!updated && wordData.word) {
-      updated = await Vocabulary.findOneAndUpdate({ word: wordData.word }, { $set: wordData }, { new: true, upsert: true });
+    if (!updated) {
+      const targetWordName = wordData.word || id;
+      updated = await Vocabulary.findOneAndUpdate({ word: targetWordName }, { $set: wordData }, { new: true, upsert: true });
     }
 
-    if (updated) return res.json(updated);
+    if (updated) {
+      if (updated.imageUrl) {
+        syncImageUrlToLocalFiles(updated.word || id, updated.imageUrl, updated);
+      }
+      return res.json(updated);
+    }
     return res.status(404).json({ message: 'Palabra no encontrada para actualizar' });
   } catch (error) {
     res.status(500).json({ message: error.message });
