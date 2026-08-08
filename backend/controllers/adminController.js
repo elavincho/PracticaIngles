@@ -320,34 +320,77 @@ export const getReports = async (req, res) => {
     const totalStudyTimeAllStudents = registeredStudents.reduce((acc, u) => acc + (u.studyTimeMinutes || 0), 0);
 
     // 3. Real Activity Engagement calculated cleanly (percentages sum to 100%)
-    let fC = 0;
-    let dC = 0;
-    let mC = 0;
-    let bC = 0;
-    let lC = 0;
+    let fC = 0; // Flashcards
+    let eC = 0; // Emparejar (drag & drop)
+    let mC = 0; // Juego de Memoria
+    let bC = 0; // Completar Palabras
+    let lC = 0; // Listening Simple
 
     registeredStudents.forEach(u => {
       const stats = u.activityStats || {};
-      if (stats.flashcards) fC += 1;
-      if (stats.dragdrop || stats.dragDrop) dC += 1;
-      if (stats.memory) mC += 1;
-      if (stats.fillblanks || stats.fillBlanks) bC += 1;
-      if (stats.listening) lC += 1;
+
+      if (stats.flashcards) {
+        if (typeof stats.flashcards === 'number') fC += stats.flashcards;
+        else if (typeof stats.flashcards === 'object') {
+          Object.values(stats.flashcards).forEach((lvlStat) => {
+            fC += (lvlStat && typeof lvlStat === 'object' && lvlStat.attempts) ? lvlStat.attempts : 1;
+          });
+        } else fC += 1;
+      }
+
+      const dd = stats.dragdrop || stats.dragDrop || stats.emparejar;
+      if (dd) {
+        if (typeof dd === 'number') eC += dd;
+        else if (typeof dd === 'object') {
+          Object.values(dd).forEach((lvlStat) => {
+            eC += (lvlStat && typeof lvlStat === 'object' && lvlStat.attempts) ? lvlStat.attempts : 1;
+          });
+        } else eC += 1;
+      }
+
+      if (stats.memory) {
+        if (typeof stats.memory === 'number') mC += stats.memory;
+        else if (typeof stats.memory === 'object') {
+          Object.values(stats.memory).forEach((lvlStat) => {
+            mC += (lvlStat && typeof lvlStat === 'object' && lvlStat.attempts) ? lvlStat.attempts : 1;
+          });
+        } else mC += 1;
+      }
+
+      const fb = stats.fillblanks || stats.fillBlanks;
+      if (fb) {
+        if (typeof fb === 'number') bC += fb;
+        else if (typeof fb === 'object') {
+          Object.values(fb).forEach((lvlStat) => {
+            bC += (lvlStat && typeof lvlStat === 'object' && lvlStat.attempts) ? lvlStat.attempts : 1;
+          });
+        } else bC += 1;
+      }
+
+      if (stats.listening) {
+        if (typeof stats.listening === 'number') lC += stats.listening;
+        else if (typeof stats.listening === 'object') {
+          Object.values(stats.listening).forEach((lvlStat) => {
+            lC += (lvlStat && typeof lvlStat === 'object' && lvlStat.attempts) ? lvlStat.attempts : 1;
+          });
+        } else lC += 1;
+      }
     });
 
-    if (fC + dC + mC + bC + lC === 0) {
+    let totalActivityUsage = fC + eC + mC + bC + lC;
+
+    if (totalActivityUsage === 0) {
       fC = 35;
-      dC = 25;
+      eC = 25;
       mC = 20;
       bC = 12;
       lC = 8;
+      totalActivityUsage = 100;
     }
-
-    const totalActivityUsage = fC + dC + mC + bC + lC;
 
     const activityEngagement = [
       { activity: "Flashcards", usagePercent: Math.round((fC / totalActivityUsage) * 100) },
-      { activity: "Drag & Drop", usagePercent: Math.round((dC / totalActivityUsage) * 100) },
+      { activity: "Emparejar", usagePercent: Math.round((eC / totalActivityUsage) * 100) },
       { activity: "Juego de Memoria", usagePercent: Math.round((mC / totalActivityUsage) * 100) },
       { activity: "Completar Palabras", usagePercent: Math.round((bC / totalActivityUsage) * 100) },
       { activity: "Listening Simple", usagePercent: Math.round((lC / totalActivityUsage) * 100) }

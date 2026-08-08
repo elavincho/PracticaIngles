@@ -71,6 +71,31 @@ export const api = {
     return await res.json();
   },
 
+  updateProfile: async (data: {
+    name?: string;
+    email?: string;
+    avatarUrl?: string;
+    phone?: string;
+    bio?: string;
+    address?: string;
+    occupation?: string;
+  }): Promise<User> => {
+    const token = localStorage.getItem('vocab_token');
+    if (!token) {
+      throw new Error('No autorizado, token requerido');
+    }
+    const res = await fetch(`${API_BASE}/auth/profile`, {
+      method: 'PUT',
+      headers: getHeaders(),
+      body: JSON.stringify(data)
+    });
+    const result = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      throw new Error(result.message || 'Error al actualizar el perfil');
+    }
+    return result;
+  },
+
   getLeaderboard: async (type: string = 'global', level: number = 1): Promise<Array<{
     id: string;
     name: string;

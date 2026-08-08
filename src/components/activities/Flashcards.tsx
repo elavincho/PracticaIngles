@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VocabularyWord } from '../../types';
 import { Volume2, RotateCw, CheckCircle2, XCircle, Sparkles, VolumeX, Gauge, Play, Trophy, PartyPopper, Award } from 'lucide-react';
 import { triggerLevelCelebration } from '../../utils/celebration';
+import { recordWordFailure } from '../../utils/wordFailures';
 import { motion } from 'motion/react';
 
 interface FlashcardsProps {
@@ -92,6 +93,8 @@ export const Flashcards: React.FC<FlashcardsProps> = ({ words, onComplete, onPro
     setIsFlipped(false);
     if (known) {
       setKnownCount(prev => prev + 1);
+    } else if (currentWord && currentWord.word) {
+      recordWordFailure(currentWord.word);
     }
 
     if (currentIndex + 1 < words.length) {

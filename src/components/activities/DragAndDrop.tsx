@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VocabularyWord } from '../../types';
 import { Sparkles, Check, ChevronRight, Trophy, PartyPopper } from 'lucide-react';
 import { triggerLevelCelebration } from '../../utils/celebration';
+import { recordWordFailure } from '../../utils/wordFailures';
 
 interface DragAndDropProps {
   words: VocabularyWord[];
@@ -89,6 +90,9 @@ export const DragAndDrop: React.FC<DragAndDropProps> = ({ words, onComplete, onP
       }
     } else {
       // Wrong match feedback
+      if (selectedWord) {
+        recordWordFailure(selectedWord);
+      }
       setSelectedWord(null);
     }
   };

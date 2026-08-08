@@ -15,7 +15,12 @@ const userSchema = new mongoose.Schema({
   studyTimeMinutes: { type: Number, default: 0 },
   todayWordsCount: { type: Number, default: 0 },
   lastStudyDate: { type: Date, default: Date.now },
-  activityStats: { type: mongoose.Schema.Types.Mixed, default: {} }
+  activityStats: { type: mongoose.Schema.Types.Mixed, default: {} },
+  avatarUrl: { type: String, default: '' },
+  phone: { type: String, default: '' },
+  bio: { type: String, default: '' },
+  address: { type: String, default: '' },
+  occupation: { type: String, default: '' }
 }, { timestamps: true });
 
 userSchema.pre('save', async function() {

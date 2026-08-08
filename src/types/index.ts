@@ -11,6 +11,13 @@ export interface User {
   completedCategories: string[];
   studyTimeMinutes?: number;
   todayWordsCount?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  avatarUrl?: string;
+  phone?: string;
+  bio?: string;
+  address?: string;
+  occupation?: string;
 }
 
 export interface VocabularyWord {

@@ -232,3 +232,20 @@ export const recordActivityScore = async (req, res) => {
     res.status(500).json({ message: error.message });
   }
 };
+
+export const recordWordFail = async (req, res) => {
+  try {
+    const { word } = req.body;
+    if (!word) return res.status(400).json({ message: 'Palabra requerida' });
+
+    if (checkDbConnection()) {
+      await Vocabulary.updateOne(
+        { word: { $regex: new RegExp(`^${word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') } },
+        { $inc: { failCount: 1 } }
+      );
+    }
+    res.json({ success: true, message: 'Fallo registrado correctamente' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};

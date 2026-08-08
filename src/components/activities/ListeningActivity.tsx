@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VocabularyWord } from '../../types';
 import { Volume2, Sparkles, CheckCircle2, XCircle, Ear } from 'lucide-react';
 import { triggerLevelCelebration } from '../../utils/celebration';
+import { recordWordFailure } from '../../utils/wordFailures';
 
 interface ListeningActivityProps {
   words: VocabularyWord[];
@@ -61,7 +62,11 @@ export const ListeningActivity: React.FC<ListeningActivityProps> = ({ words, onC
     const isCorrect = option === currentWord.translation;
     setFeedback(isCorrect ? 'correct' : 'incorrect');
 
-    if (isCorrect) setScore(prev => prev + 1);
+    if (isCorrect) {
+      setScore(prev => prev + 1);
+    } else if (currentWord && currentWord.word) {
+      recordWordFailure(currentWord.word);
+    }
 
     setTimeout(() => {
       if (currentIndex + 1 < words.length) {

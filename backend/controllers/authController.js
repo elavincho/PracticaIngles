@@ -50,7 +50,12 @@ export const register = async (req, res) => {
         streak: user.streak,
         unlockedLevel: user.unlockedLevel,
         badges: user.badges,
-        completedCategories: user.completedCategories
+        completedCategories: user.completedCategories,
+        avatarUrl: user.avatarUrl || '',
+        phone: user.phone || '',
+        bio: user.bio || '',
+        address: user.address || '',
+        occupation: user.occupation || ''
       },
       token
     });
@@ -87,7 +92,12 @@ export const login = async (req, res) => {
           streak: user.streak,
           unlockedLevel: user.unlockedLevel,
           badges: user.badges,
-          completedCategories: user.completedCategories
+          completedCategories: user.completedCategories,
+          avatarUrl: user.avatarUrl || '',
+          phone: user.phone || '',
+          bio: user.bio || '',
+          address: user.address || '',
+          occupation: user.occupation || ''
         },
         token
       });
@@ -121,6 +131,39 @@ export const getProfile = async (req, res) => {
       return res.json(user);
     }
     res.status(404).json({ message: 'Usuario no encontrado' });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+};
+
+export const updateProfile = async (req, res) => {
+  try {
+    if (!checkDbConnection()) {
+      return res.status(503).json({
+        success: false,
+        dbConnected: false,
+        message: 'Base de datos no conectada.'
+      });
+    }
+
+    const { name, email, avatarUrl, phone, bio, address, occupation } = req.body;
+    const user = await User.findById(req.user.id);
+    if (!user) {
+      return res.status(404).json({ message: 'Usuario no encontrado' });
+    }
+
+    if (name) user.name = name;
+    if (email) user.email = email;
+    if (avatarUrl !== undefined) user.avatarUrl = avatarUrl;
+    if (phone !== undefined) user.phone = phone;
+    if (bio !== undefined) user.bio = bio;
+    if (address !== undefined) user.address = address;
+    if (occupation !== undefined) user.occupation = occupation;
+
+    await user.save();
+
+    const updated = await User.findById(user._id).select('-password');
+    return res.json(updated);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

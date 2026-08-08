@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VocabularyWord } from '../../types';
 import { Sparkles, Brain, RotateCcw } from 'lucide-react';
 import { triggerLevelCelebration } from '../../utils/celebration';
+import { recordWordFailure } from '../../utils/wordFailures';
 
 interface MemoryGameProps {
   words: VocabularyWord[];
@@ -123,6 +124,10 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ words, onComplete, onPro
         }, 400);
       } else {
         // No match: flip back
+        const englishCard = first.type === 'en' ? first : second;
+        if (englishCard && englishCard.text) {
+          recordWordFailure(englishCard.text);
+        }
         setTimeout(() => {
           setCards(prev =>
             prev.map(c => (c.id === first.id || c.id === second.id ? { ...c, isFlipped: false } : c))

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { VocabularyWord } from '../../types';
 import { Sparkles, CheckCircle2, XCircle, ArrowRight, Lightbulb } from 'lucide-react';
 import { triggerLevelCelebration } from '../../utils/celebration';
+import { recordWordFailure } from '../../utils/wordFailures';
 
 interface FillBlanksProps {
   words: VocabularyWord[];
@@ -63,6 +64,8 @@ export const FillBlanks: React.FC<FillBlanksProps> = ({ words, onComplete, onPro
       setTimeout(() => {
         handleNext(true, newScore);
       }, 1200);
+    } else if (currentWord && currentWord.word) {
+      recordWordFailure(currentWord.word);
     }
     // For incorrect answers, we do NOT auto-advance; the user clicks "Entendido, siguiente frase"
   };
