@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { VocabularyWord } from '../../types';
 import { Sparkles, Brain, RotateCcw } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { triggerLevelCelebration } from '../../utils/celebration';
 
 interface MemoryGameProps {
   words: VocabularyWord[];
   onComplete: (earnedPoints: number, accuracy: number, details?: { attempts?: number; moves?: number; correctSentences?: number; correctWords?: number; matchedWords?: number }) => void;
+  onProgressChange?: (inProgress: boolean) => void;
 }
 
 interface Card {
@@ -19,13 +20,20 @@ interface Card {
 
 const PAIRS_PER_ROUND = 4;
 
-export const MemoryGame: React.FC<MemoryGameProps> = ({ words, onComplete }) => {
+export const MemoryGame: React.FC<MemoryGameProps> = ({ words, onComplete, onProgressChange }) => {
   const [currentRound, setCurrentRound] = useState(0);
   const [cards, setCards] = useState<Card[]>([]);
   const [flippedCards, setFlippedCards] = useState<Card[]>([]);
   const [totalMoves, setTotalMoves] = useState(0);
   const [totalMatchedPairs, setTotalMatchedPairs] = useState(0);
   const [completed, setCompleted] = useState(false);
+
+  // Notify parent component about activity progress status
+  useEffect(() => {
+    if (onProgressChange) {
+      onProgressChange(!completed);
+    }
+  }, [completed, onProgressChange]);
 
   const totalRounds = Math.ceil((words?.length || 0) / PAIRS_PER_ROUND) || 1;
 
@@ -107,7 +115,7 @@ export const MemoryGame: React.FC<MemoryGameProps> = ({ words, onComplete }) => 
               const finalMoves = totalMoves + 1;
               const accuracy = 90;
               const points = words.length * 15 + 50;
-              confetti({ particleCount: 85, spread: 75, origin: { y: 0.6 } });
+              triggerLevelCelebration();
               setCompleted(true);
               onComplete(points, accuracy, { moves: finalMoves, matchedWords: words.length });
             }

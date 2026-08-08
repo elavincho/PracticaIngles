@@ -6,6 +6,18 @@ import { DragAndDrop } from './activities/DragAndDrop';
 import { MemoryGame } from './activities/MemoryGame';
 import { FillBlanks } from './activities/FillBlanks';
 import { ListeningActivity } from './activities/ListeningActivity';
+import { motion, AnimatePresence } from 'motion/react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+  Cell
+} from 'recharts';
+import { getDailyLogs, recordWordsForToday, calculateRealStreak, getRealWeeklyData } from '../utils/dailyLogs';
 import {
   BookOpen,
   Sparkles,
@@ -21,9 +33,16 @@ import {
   Target,
   Trophy,
   ChevronRight,
+  ChevronLeft,
   ArrowRight,
   Check,
-  X
+  X,
+  AlertTriangle,
+  LogOut,
+  TrendingUp,
+  BarChart3,
+  Calendar,
+  Play
 } from 'lucide-react';
 
 interface BentoDashboardProps {
@@ -31,6 +50,36 @@ interface BentoDashboardProps {
   onUpdateUser?: (updated: User) => void;
   onRequireAuth: () => void;
 }
+
+// Custom Tooltip component for Recharts Weekly Progress Chart
+const CustomChartTooltip = ({ active, payload }: any) => {
+  if (active && payload && payload.length) {
+    const data = payload[0].payload;
+    return (
+      <div className="bg-slate-900 text-white p-3 rounded-2xl text-xs shadow-xl border border-slate-700 space-y-1 z-50">
+        <div className="font-extrabold text-indigo-300 flex items-center justify-between gap-3">
+          <span>{data.day}</span>
+          {data.isToday && (
+            <span className="bg-indigo-600 text-white text-[9px] px-1.5 py-0.5 rounded-full uppercase font-black tracking-wider">
+              Hoy
+            </span>
+          )}
+        </div>
+        <div className="text-white font-extrabold text-sm flex items-center space-x-1.5 pt-0.5">
+          <BookOpen className="w-4 h-4 text-emerald-400" />
+          <span>{data.words} palabras aprendidas</span>
+        </div>
+        <div className="text-[10px] text-slate-400 flex items-center justify-between pt-1 border-t border-slate-800">
+          <span>Meta: {data.target} palabras</span>
+          <span className={data.words >= data.target ? 'text-emerald-400 font-bold' : 'text-slate-400'}>
+            {data.words >= data.target ? '✓ Meta cumplida' : `${Math.round((data.words / data.target) * 100)}%`}
+          </span>
+        </div>
+      </div>
+    );
+  }
+  return null;
+};
 
 export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUser, onRequireAuth }) => {
   const [activeLevel, setActiveLevel] = useState<number>(user?.unlockedLevel || 1);
@@ -52,6 +101,113 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
 
   const isUserInitialized = useRef(false);
 
+  // Activity Tabs Scroll Monitoring
+  const tabsContainerRef = useRef<HTMLDivElement>(null);
+  const [canScrollLeft, setCanScrollLeft] = useState<boolean>(false);
+  const [canScrollRight, setCanScrollRight] = useState<boolean>(true);
+
+  const checkTabScroll = () => {
+    if (tabsContainerRef.current) {
+      const { scrollLeft, scrollWidth, clientWidth } = tabsContainerRef.current;
+      setCanScrollLeft(scrollLeft > 8);
+      setCanScrollRight(scrollLeft < scrollWidth - clientWidth - 8);
+    }
+  };
+
+  useEffect(() => {
+    checkTabScroll();
+    const timer = setTimeout(checkTabScroll, 300);
+    window.addEventListener('resize', checkTabScroll);
+    return () => {
+      clearTimeout(timer);
+      window.removeEventListener('resize', checkTabScroll);
+    };
+  }, [activeActivity]);
+
+  const scrollTabs = (direction: 'left' | 'right') => {
+    if (tabsContainerRef.current) {
+      const scrollAmount = direction === 'left' ? -160 : 160;
+      tabsContainerRef.current.scrollBy({ left: scrollAmount, behavior: 'smooth' });
+    }
+  };
+
+  // Activity In Progress & Exit Confirmation Modal State
+  const [isActivityInProgress, setIsActivityInProgress] = useState<boolean>(false);
+  const [showExitModal, setShowExitModal] = useState<boolean>(false);
+  const [pendingNavigation, setPendingNavigation] = useState<{
+    type: 'activity' | 'category' | 'level';
+    value: any;
+  } | null>(null);
+
+  const getActivityDisplayName = (type: ActivityType): string => {
+    switch (type) {
+      case 'flashcards': return 'Flashcards';
+      case 'dragdrop': return 'Emparejar';
+      case 'memory': return 'Juego de Memoria';
+      case 'fillblanks': return 'Completar Oraciones';
+      case 'listening': return 'Listening';
+      default: return 'Actividad';
+    }
+  };
+
+  const handleAttemptActivityChange = (newActivity: ActivityType) => {
+    if (newActivity === activeActivity) return;
+    if (isActivityInProgress) {
+      setPendingNavigation({ type: 'activity', value: newActivity });
+      setShowExitModal(true);
+    } else {
+      setActiveActivity(newActivity);
+      setIsActivityInProgress(false);
+    }
+  };
+
+  const handleAttemptLevelChange = (newLevel: number) => {
+    if (newLevel === activeLevel) return;
+    if (isActivityInProgress) {
+      setPendingNavigation({ type: 'level', value: newLevel });
+      setShowExitModal(true);
+    } else {
+      setActiveLevel(newLevel);
+      setIsActivityInProgress(false);
+    }
+  };
+
+  const handleAttemptCategoryChange = (newCategory: string) => {
+    if (newCategory === activeCategory) return;
+    if (isActivityInProgress) {
+      setPendingNavigation({ type: 'category', value: newCategory });
+      setShowExitModal(true);
+    } else {
+      setActiveCategory(newCategory);
+      setIsActivityInProgress(false);
+    }
+  };
+
+  const handleExplicitExitClick = () => {
+    setPendingNavigation(null);
+    setShowExitModal(true);
+  };
+
+  const confirmExit = () => {
+    if (pendingNavigation) {
+      if (pendingNavigation.type === 'activity') {
+        setActiveActivity(pendingNavigation.value);
+      } else if (pendingNavigation.type === 'category') {
+        setActiveCategory(pendingNavigation.value);
+      } else if (pendingNavigation.type === 'level') {
+        setActiveLevel(pendingNavigation.value);
+      }
+    }
+    setIsActivityInProgress(false);
+    setShowExitModal(false);
+    setPendingNavigation(null);
+  };
+
+  const cancelExit = () => {
+    setShowExitModal(false);
+    setPendingNavigation(null);
+  };
+
   // Suggestion Modal state
   const [suggestionModal, setSuggestionModal] = useState<{
     isOpen: boolean;
@@ -66,6 +222,17 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
   // Daily target state
   const [dailyTarget] = useState<number>(20);
   const todayCompletedCount = user?.todayWordsCount || 0;
+
+  // Calculate real streak & weekly chart data from local logs + user state
+  const realStreak = calculateRealStreak(user?.id);
+  const effectiveStreak = Math.max(realStreak, user?.streak || 0);
+
+  const weeklyData = getRealWeeklyData(user?.id, dailyTarget).map(item => {
+    if (item.isToday) {
+      return { ...item, words: Math.max(item.words, todayCompletedCount) };
+    }
+    return item;
+  });
 
   // Synchronize unlocked level on initial load & update completed categories
   useEffect(() => {
@@ -145,6 +312,7 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
     accuracy: number,
     details?: { attempts?: number; moves?: number; correctSentences?: number; correctWords?: number; matchedWords?: number }
   ) => {
+    setIsActivityInProgress(false);
     const wordCountAdd = details?.matchedWords ?? (vocabulary.length || 20);
 
     // Mark current category as completed
@@ -188,8 +356,23 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
           correctWords: details?.correctWords,
           activeLevel: activeLevel
         });
+        // Record activity completion in daily logs
+        recordWordsForToday(wordCountAdd, user?.id);
+        const newRealStreak = calculateRealStreak(user?.id);
+
         if (res && res.user && onUpdateUser) {
-          onUpdateUser(res.user);
+          const updatedUser = { ...res.user };
+          updatedUser.streak = Math.max(newRealStreak, updatedUser.streak || 0);
+          onUpdateUser(updatedUser);
+        } else if (user && onUpdateUser) {
+          onUpdateUser({
+            ...user,
+            points: (user.points || 0) + earnedPoints,
+            streak: Math.max(newRealStreak, user.streak || 0),
+            todayWordsCount: (user.todayWordsCount || 0) + wordCountAdd,
+            completedCategories: updatedCompleted,
+            unlockedLevel: nextUnlockedLevel
+          });
         }
         loadLeaderboards(rankingLevel);
       }
@@ -238,44 +421,101 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-6 space-y-6">
-      {/* Quick Level Filter Bar */}
-      <div className="flex flex-col sm:flex-row gap-3 justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="flex items-center space-x-2 text-xs font-bold text-slate-700 dark:text-slate-300">
-          <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
-          <span>Selecciona un Nivel A1:</span>
+      {/* Student Dashboard Header Banner with Streak Counter */}
+      <motion.div
+        initial={{ opacity: 0, y: -12 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.4, ease: 'easeOut' }}
+        className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white p-5 sm:p-6 rounded-3xl border border-indigo-900/50 shadow-xl flex flex-col md:flex-row items-center justify-between gap-4 relative overflow-hidden"
+      >
+        {/* Background glow ambient effects */}
+        <div className="absolute -top-24 -right-24 w-60 h-60 bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-60 h-60 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+
+        <div className="flex items-center space-x-4 relative z-10 w-full md:w-auto">
+          <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-indigo-600/30 border border-indigo-400/30 flex items-center justify-center shrink-0 shadow-inner">
+            <span className="text-xl sm:text-2xl font-black text-indigo-300">
+              {user?.name ? user.name.charAt(0).toUpperCase() : 'E'}
+            </span>
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-black tracking-tight text-white">
+                ¡Hola, {user?.name || 'Estudiante'}!
+              </h1>
+              <span className="bg-indigo-500/20 text-indigo-300 border border-indigo-400/30 text-[10px] font-bold px-2.5 py-0.5 rounded-full">
+                CEFR A1.{(user?.unlockedLevel || activeLevel)}
+              </span>
+            </div>
+            <p className="text-xs sm:text-sm text-slate-300 font-medium mt-0.5">
+              Panel de aprendizaje interactivo de vocabulario en inglés
+            </p>
+          </div>
         </div>
 
-        {/* Level Badges Selector Pill */}
-        <div className="flex items-center space-x-1.5 overflow-x-auto w-full sm:w-auto pb-1 sm:pb-0 scrollbar-none">
-          {[1, 2, 3, 4, 5].map(levelNum => {
-            const isUnlocked = !user || levelNum <= (user.unlockedLevel || 1);
-            const isActive = activeLevel === levelNum;
-            return (
-              <button
-                key={levelNum}
-                onClick={() => isUnlocked && setActiveLevel(levelNum)}
-                disabled={!isUnlocked}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold flex items-center space-x-1 transition-all border whitespace-nowrap cursor-pointer ${
-                  isActive
-                    ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
-                    : isUnlocked
-                    ? 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-                    : 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-60'
-                }`}
-              >
-                {!isUnlocked ? <Lock className="w-3 h-3 text-slate-400" /> : <BookOpen className="w-3 h-3" />}
-                <span>Nivel {levelNum}</span>
-              </button>
-            );
-          })}
+        {/* Header Streak Counter & XP Badge */}
+        <div className="flex items-center gap-3 relative z-10 w-full md:w-auto justify-between md:justify-end">
+          {/* Contador de 'Días de Racha' Banner Card */}
+          <div className="bg-amber-500/15 border border-amber-500/40 hover:border-amber-400/60 transition-all rounded-2xl p-3 sm:px-4 flex items-center space-x-3 shadow-lg group">
+            <div className="relative">
+              <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-amber-500/20 flex items-center justify-center border border-amber-400/40 group-hover:scale-105 transition-transform">
+                <Flame className="w-6 h-6 text-amber-400 fill-amber-400 animate-bounce" />
+              </div>
+              <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              </span>
+            </div>
+
+            <div>
+              <div className="flex items-baseline space-x-1">
+                <span className="text-xl sm:text-2xl font-black text-amber-300 leading-none">
+                  {effectiveStreak}
+                </span>
+                <span className="text-xs font-bold text-amber-200">
+                  {effectiveStreak === 1 ? 'Día de Racha' : 'Días de Racha'}
+                </span>
+              </div>
+              <p className="text-[10px] font-medium text-amber-200/80 mt-0.5 flex items-center space-x-1">
+                {todayCompletedCount > 0 ? (
+                  <span className="text-emerald-400 font-bold flex items-center space-x-1">
+                    <CheckCircle2 className="w-3 h-3" />
+                    <span>¡Racha activa hoy!</span>
+                  </span>
+                ) : (
+                  <span>Completa 1 actividad hoy</span>
+                )}
+              </p>
+            </div>
+          </div>
+
+          {/* XP Points Card */}
+          <div className="bg-indigo-500/15 border border-indigo-400/30 rounded-2xl p-3 sm:px-4 flex items-center space-x-3 shadow-lg">
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-indigo-500/20 flex items-center justify-center border border-indigo-400/30">
+              <Sparkles className="w-5 h-5 text-indigo-300 fill-indigo-300" />
+            </div>
+            <div>
+              <div className="text-lg sm:text-xl font-black text-indigo-200 leading-none">
+                {user?.points || 0}
+              </div>
+              <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wider">
+                XP Puntos
+              </span>
+            </div>
+          </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Main 12-Column Bento Grid Container */}
       <div className="grid grid-cols-12 gap-5">
 
         {/* BENTO CARD 1: Level Progression Selector (Col 3, Row 4) */}
-        <div className="col-span-12 lg:col-span-3 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-4">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.05, ease: 'easeOut' }}
+          className="col-span-12 lg:col-span-3 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between space-y-4"
+        >
           <div>
             <div className="flex items-center space-x-2 text-indigo-600 dark:text-indigo-400 mb-1">
               <Layers className="w-4 h-4" />
@@ -301,7 +541,7 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
               return (
                 <button
                   key={l.lvl}
-                  onClick={() => isUnlocked && setActiveLevel(l.lvl)}
+                  onClick={() => isUnlocked && handleAttemptLevelChange(l.lvl)}
                   disabled={!isUnlocked}
                   className={`w-full p-3 rounded-2xl border text-left flex items-center justify-between transition-all ${
                     isActive
@@ -345,73 +585,124 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
               />
             </div>
           </div>
-        </div>
+        </motion.div>
 
         {/* BENTO CARD 2: Main Activity & Interactive Stage (Col 6, Row 4) */}
-        <div className="col-span-12 lg:col-span-6 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.1, ease: 'easeOut' }}
+          className="col-span-12 lg:col-span-6 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between"
+        >
           {/* Activity Modes Header Pills */}
-          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4">
-            <div className="flex space-x-1 overflow-x-auto scrollbar-none">
-              <button
-                onClick={() => setActiveActivity('flashcards')}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition-all ${
-                  activeActivity === 'flashcards'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <BookOpen className="w-3.5 h-3.5" />
-                <span>Flashcards</span>
-              </button>
+          <div className="flex items-center justify-between border-b border-slate-100 dark:border-slate-800 pb-3 mb-4 gap-2">
+            <div className="relative flex items-center flex-1 min-w-0">
+              {/* Left Scroll Arrow */}
+              {canScrollLeft && (
+                <button
+                  type="button"
+                  onClick={() => scrollTabs('left')}
+                  className="p-1 rounded-full bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 shadow-xs transition-all shrink-0 mr-1 z-10 cursor-pointer"
+                  title="Anterior"
+                  aria-label="Ver actividades anteriores"
+                >
+                  <ChevronLeft className="w-4 h-4 stroke-[2.5]" />
+                </button>
+              )}
 
-              <button
-                onClick={() => setActiveActivity('dragdrop')}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition-all ${
-                  activeActivity === 'dragdrop'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
+              {/* Scrollable Container */}
+              <div
+                ref={tabsContainerRef}
+                onScroll={checkTabScroll}
+                className="flex space-x-1.5 overflow-x-auto scrollbar-none scroll-smooth flex-1 py-0.5"
               >
-                <Puzzle className="w-3.5 h-3.5" />
-                <span>Emparejar</span>
-              </button>
+                <button
+                  onClick={() => handleAttemptActivityChange('flashcards')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition-all shrink-0 ${
+                    activeActivity === 'flashcards'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <BookOpen className="w-3.5 h-3.5" />
+                  <span>Flashcards</span>
+                </button>
 
-              <button
-                onClick={() => setActiveActivity('memory')}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition-all ${
-                  activeActivity === 'memory'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Brain className="w-3.5 h-3.5" />
-                <span>Memoria</span>
-              </button>
+                <button
+                  onClick={() => handleAttemptActivityChange('dragdrop')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition-all shrink-0 ${
+                    activeActivity === 'dragdrop'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <Puzzle className="w-3.5 h-3.5" />
+                  <span>Emparejar</span>
+                </button>
 
-              <button
-                onClick={() => setActiveActivity('fillblanks')}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition-all ${
-                  activeActivity === 'fillblanks'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <PenTool className="w-3.5 h-3.5" />
-                <span>Completar</span>
-              </button>
+                <button
+                  onClick={() => handleAttemptActivityChange('memory')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition-all shrink-0 ${
+                    activeActivity === 'memory'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <Brain className="w-3.5 h-3.5" />
+                  <span>Memoria</span>
+                </button>
 
-              <button
-                onClick={() => setActiveActivity('listening')}
-                className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition-all ${
-                  activeActivity === 'listening'
-                    ? 'bg-indigo-600 text-white shadow-xs'
-                    : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
-                }`}
-              >
-                <Ear className="w-3.5 h-3.5" />
-                <span>Listening</span>
-              </button>
+                <button
+                  onClick={() => handleAttemptActivityChange('fillblanks')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition-all shrink-0 ${
+                    activeActivity === 'fillblanks'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <PenTool className="w-3.5 h-3.5" />
+                  <span>Completar</span>
+                </button>
+
+                <button
+                  onClick={() => handleAttemptActivityChange('listening')}
+                  className={`px-3 py-1.5 rounded-full text-xs font-bold flex items-center space-x-1.5 transition-all shrink-0 ${
+                    activeActivity === 'listening'
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'
+                  }`}
+                >
+                  <Ear className="w-3.5 h-3.5" />
+                  <span>Listening</span>
+                </button>
+              </div>
+
+              {/* Right Scroll Indicator Arrow Button */}
+              {canScrollRight && (
+                <button
+                  type="button"
+                  onClick={() => scrollTabs('right')}
+                  className="px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-950/80 hover:bg-indigo-100 dark:hover:bg-indigo-900 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-800 text-xs font-black transition-all shrink-0 ml-1 z-10 flex items-center space-x-0.5 cursor-pointer animate-pulse shadow-xs"
+                  title="Ver más actividades"
+                  aria-label="Ver más actividades"
+                >
+                  <span className="text-[10px] uppercase tracking-wider font-extrabold hidden xs:inline">Más</span>
+                  <ChevronRight className="w-4 h-4 stroke-[3]" />
+                </button>
+              )}
             </div>
+
+            {isActivityInProgress && (
+              <button
+                type="button"
+                onClick={handleExplicitExitClick}
+                className="px-2.5 py-1.5 rounded-full text-[11px] font-extrabold text-rose-600 dark:text-rose-400 bg-rose-50 dark:bg-rose-950/50 hover:bg-rose-100 dark:hover:bg-rose-900/60 border border-rose-200 dark:border-rose-800 transition-all flex items-center space-x-1 cursor-pointer shrink-0"
+                title="Salir de la actividad actual"
+              >
+                <LogOut className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Salir</span>
+              </button>
+            )}
           </div>
 
           {/* Interactive Stage Render */}
@@ -425,30 +716,75 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
               <div className="p-8 text-center text-slate-500">
                 No se encontraron palabras para los filtros seleccionados.
               </div>
+            ) : !isActivityInProgress ? (
+              <motion.div
+                key={`${activeActivity}-${activeCategory}-${activeLevel}`}
+                initial={{ opacity: 0, scale: 0.97 }}
+                animate={{ opacity: 1, scale: 1 }}
+                transition={{ duration: 0.3 }}
+                className="py-8 px-6 text-center flex flex-col items-center justify-center space-y-4 bg-gradient-to-b from-indigo-50/50 via-white to-indigo-50/30 dark:from-indigo-950/30 dark:via-slate-900 dark:to-indigo-950/20 rounded-3xl border border-indigo-100 dark:border-indigo-900/40 my-2 shadow-xs"
+              >
+                <div className="w-16 h-16 rounded-2xl bg-gradient-to-tr from-indigo-600 to-indigo-500 text-white flex items-center justify-center shadow-lg shadow-indigo-500/25 ring-4 ring-indigo-100 dark:ring-indigo-950/80">
+                  {activeActivity === 'flashcards' && <BookOpen className="w-8 h-8" />}
+                  {activeActivity === 'dragdrop' && <Puzzle className="w-8 h-8" />}
+                  {activeActivity === 'memory' && <Brain className="w-8 h-8" />}
+                  {activeActivity === 'fillblanks' && <PenTool className="w-8 h-8" />}
+                  {activeActivity === 'listening' && <Ear className="w-8 h-8" />}
+                </div>
+
+                <div className="space-y-1.5 max-w-md">
+                  <div className="inline-flex items-center space-x-1.5 text-[11px] font-extrabold uppercase tracking-widest text-indigo-700 dark:text-indigo-300 bg-indigo-100 dark:bg-indigo-950 px-3 py-1 rounded-full border border-indigo-200/80 dark:border-indigo-800">
+                    <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
+                    <span>{getActivityDisplayName(activeActivity)}</span>
+                    <span>•</span>
+                    <span>{activeCategory}</span>
+                  </div>
+                  <h3 className="text-xl font-black text-slate-900 dark:text-white pt-1">
+                    ¿Listo para practicar esta actividad?
+                  </h3>
+                  <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
+                    Practica las {vocabulary.length} palabras de este tema en el Nivel A1.{activeLevel} para ganar puntos XP y mantener tu racha.
+                  </p>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => setIsActivityInProgress(true)}
+                  className="mt-2 px-7 py-3.5 bg-indigo-600 hover:bg-indigo-700 active:scale-95 text-white font-extrabold text-sm rounded-2xl shadow-lg shadow-indigo-600/30 hover:shadow-indigo-600/40 transition-all flex items-center space-x-2.5 cursor-pointer"
+                >
+                  <Play className="w-4 h-4 fill-white" />
+                  <span>Iniciar Actividad</span>
+                </button>
+              </motion.div>
             ) : (
               <>
                 {activeActivity === 'flashcards' && (
-                  <Flashcards words={vocabulary} onComplete={handleActivityComplete} />
+                  <Flashcards words={vocabulary} onComplete={handleActivityComplete} onProgressChange={setIsActivityInProgress} />
                 )}
                 {activeActivity === 'dragdrop' && (
-                  <DragAndDrop words={vocabulary} onComplete={handleActivityComplete} />
+                  <DragAndDrop words={vocabulary} onComplete={handleActivityComplete} onProgressChange={setIsActivityInProgress} />
                 )}
                 {activeActivity === 'memory' && (
-                  <MemoryGame words={vocabulary} onComplete={handleActivityComplete} />
+                  <MemoryGame words={vocabulary} onComplete={handleActivityComplete} onProgressChange={setIsActivityInProgress} />
                 )}
                 {activeActivity === 'fillblanks' && (
-                  <FillBlanks words={vocabulary} onComplete={handleActivityComplete} />
+                  <FillBlanks words={vocabulary} onComplete={handleActivityComplete} onProgressChange={setIsActivityInProgress} />
                 )}
                 {activeActivity === 'listening' && (
-                  <ListeningActivity words={vocabulary} onComplete={handleActivityComplete} />
+                  <ListeningActivity words={vocabulary} onComplete={handleActivityComplete} onProgressChange={setIsActivityInProgress} />
                 )}
               </>
             )}
           </div>
-        </div>
+        </motion.div>
 
         {/* BENTO CARD 3: Daily Goal Circular Progress Ring (Col 3, Row 2) */}
-        <div className="col-span-12 sm:col-span-6 lg:col-span-3 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center justify-between text-center">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15, ease: 'easeOut' }}
+          className="col-span-12 sm:col-span-6 lg:col-span-3 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col items-center justify-between text-center"
+        >
           <div className="w-full flex items-center justify-between">
             <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-400">Meta Diaria</span>
             <Target className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -486,16 +822,21 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
           <p className="text-xs font-semibold text-slate-600 dark:text-slate-300">
             {goalPercent >= 100 ? '🎉 ¡Meta Diaria Alcanzada!' : `¡Faltan ${dailyTarget - todayCompletedCount} palabras hoy!`}
           </p>
-        </div>
+        </motion.div>
 
         {/* BENTO CARD 4: Streak & Mastery Card (Col 3, Row 2 - Emerald Gradient) */}
-        <div className="col-span-12 sm:col-span-6 lg:col-span-3 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-3xl p-5 shadow-lg flex flex-col justify-between">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2, ease: 'easeOut' }}
+          className="col-span-12 sm:col-span-6 lg:col-span-3 bg-gradient-to-br from-emerald-500 to-teal-600 text-white rounded-3xl p-5 shadow-lg flex flex-col justify-between"
+        >
           <div className="flex justify-between items-start">
             <div>
               <span className="text-[11px] font-bold uppercase tracking-wider bg-white/20 px-2.5 py-0.5 rounded-full">
                 Racha Activa
               </span>
-              <h4 className="text-2xl font-black mt-1">{user?.streak || 5} Días Seguidos</h4>
+              <h4 className="text-2xl font-black mt-1">{effectiveStreak} {effectiveStreak === 1 ? 'Día Seguido' : 'Días Seguidos'}</h4>
             </div>
             <Flame className="w-8 h-8 text-amber-300 fill-amber-300 animate-pulse" />
           </div>
@@ -509,10 +850,94 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
           </div>
 
           <span className="text-[11px] text-emerald-100 font-medium">¡Estudiaste hoy! Sigue así para conservar tu racha.</span>
-        </div>
+        </motion.div>
+
+        {/* BENTO CARD: Recharts Weekly Progress Chart (Col 6) */}
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.22, ease: 'easeOut' }}
+          className="col-span-12 lg:col-span-6 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col justify-between"
+        >
+          <div className="flex items-center justify-between pb-3 border-b border-slate-100 dark:border-slate-800 mb-2">
+            <div className="flex items-center space-x-2">
+              <div className="p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/60 text-indigo-600 dark:text-indigo-400">
+                <BarChart3 className="w-4 h-4" />
+              </div>
+              <div>
+                <h3 className="text-sm font-extrabold text-slate-900 dark:text-white">
+                  Progreso Semanal de Palabras
+                </h3>
+                <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                  Palabras aprendidas esta semana por día
+                </p>
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-1 bg-slate-100 dark:bg-slate-800 px-2.5 py-1 rounded-full text-[11px] font-extrabold text-slate-700 dark:text-slate-300">
+              <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
+              <span>{weeklyData.reduce((acc, curr) => acc + curr.words, 0)} esta semana</span>
+            </div>
+          </div>
+
+          <div className="w-full h-44 my-1">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={weeklyData} margin={{ top: 10, right: 10, left: -22, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#334155" opacity={0.12} />
+                <XAxis
+                  dataKey="day"
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 11, fontWeight: 700, fill: '#64748b' }}
+                />
+                <YAxis
+                  axisLine={false}
+                  tickLine={false}
+                  tick={{ fontSize: 10, fill: '#94a3b8' }}
+                  allowDecimals={false}
+                />
+                <Tooltip content={<CustomChartTooltip />} cursor={{ fill: 'rgba(99, 102, 241, 0.08)', radius: 8 }} />
+                <Bar dataKey="words" radius={[6, 6, 0, 0]} maxBarSize={30}>
+                  {weeklyData.map((entry, index) => (
+                    <Cell
+                      key={`cell-${index}`}
+                      fill={entry.isToday ? '#4f46e5' : entry.words >= entry.target ? '#10b981' : '#818cf8'}
+                      opacity={entry.isToday ? 1 : entry.words > 0 ? 0.85 : 0.35}
+                    />
+                  ))}
+                </Bar>
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+
+          <div className="flex items-center justify-between pt-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+            <div className="flex items-center space-x-3">
+              <span className="flex items-center space-x-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-600 inline-block" />
+                <span>Hoy</span>
+              </span>
+              <span className="flex items-center space-x-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 inline-block" />
+                <span>Meta cumplida (≥20)</span>
+              </span>
+              <span className="flex items-center space-x-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-indigo-400 inline-block" />
+                <span>Días previos</span>
+              </span>
+            </div>
+            <span className="font-bold text-slate-700 dark:text-slate-300">
+              Promedio: {Math.round(weeklyData.reduce((a, b) => a + b.words, 0) / 7)} p/día
+            </span>
+          </div>
+        </motion.div>
 
         {/* BENTO CARD 5: Category Filter Cards Grid for Active Level (Col 12) */}
-        <div className="col-span-12 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3">
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.25, ease: 'easeOut' }}
+          className="col-span-12 bg-white dark:bg-slate-900 rounded-3xl p-5 border border-slate-200 dark:border-slate-800 shadow-sm space-y-3"
+        >
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-2">
               <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
@@ -531,9 +956,12 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
               const isCompleted = completedCategories.includes(cat.name);
 
               return (
-                <button
-                  key={idx}
-                  onClick={() => setActiveCategory(cat.name)}
+                <motion.button
+                  key={cat.name || idx}
+                  initial={{ opacity: 0, scale: 0.96, y: 8 }}
+                  animate={{ opacity: 1, scale: 1, y: 0 }}
+                  transition={{ duration: 0.25, delay: 0.25 + (idx * 0.03), ease: 'easeOut' }}
+                  onClick={() => handleAttemptCategoryChange(cat.name)}
                   className={`p-3 rounded-2xl border text-left flex flex-col justify-between transition-all relative ${
                     isActive
                       ? 'bg-indigo-600 text-white border-indigo-600 shadow-md scale-102 ring-2 ring-indigo-300'
@@ -553,16 +981,22 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
                   <span className={`text-[10px] font-semibold mt-2 ${isActive ? 'text-indigo-100' : isCompleted ? 'text-emerald-700 dark:text-emerald-400' : 'text-slate-400'}`}>
                     {cat.totalWords} palabras {isCompleted && '• ✓'}
                   </span>
-                </button>
+                </motion.button>
               );
             })}
           </div>
-        </div>
+        </motion.div>
 
       </div>
 
       {/* SECCIÓN DEDICADA DE RANKINGS: 5 TARJETAS INDEPENDIENTES POR ACTIVIDAD */}
-      <div className="space-y-4 pt-6 border-t border-slate-200 dark:border-slate-800">
+      <motion.div
+        initial={{ opacity: 0, y: 20 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true, margin: '-40px' }}
+        transition={{ duration: 0.45, ease: 'easeOut' }}
+        className="space-y-4 pt-6 border-t border-slate-200 dark:border-slate-800"
+      >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <div className="inline-flex items-center space-x-1.5 text-amber-500 font-extrabold text-xs bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20 mb-1">
@@ -866,7 +1300,7 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
             </div>
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* LEARNING PATH SUGGESTION MODAL OVERLAY */}
       {suggestionModal?.isOpen && (
@@ -986,6 +1420,62 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
           </div>
         </div>
       )}
+
+      {/* MODAL DE CONFIRMACIÓN DE SALIDA DE ACTIVIDAD */}
+      <AnimatePresence>
+        {showExitModal && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9, y: 20 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.9, y: 20 }}
+              transition={{ type: 'spring', damping: 22, stiffness: 260 }}
+              className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5 text-center relative overflow-hidden"
+            >
+              <div className="w-14 h-14 bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 rounded-2xl flex items-center justify-center mx-auto border border-rose-200 dark:border-rose-800 shadow-inner">
+                <AlertTriangle className="w-7 h-7 animate-bounce" />
+              </div>
+
+              <div className="space-y-2">
+                <h3 className="text-xl font-black text-slate-900 dark:text-white">
+                  ¿Salir de la actividad actual?
+                </h3>
+                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed px-2">
+                  Tienes una práctica en curso en <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{getActivityDisplayName(activeActivity)}</span>. Si sales ahora, el progreso de esta sesión no se guardará. ¿Estás seguro de que deseas salir?
+                </p>
+              </div>
+
+              {pendingNavigation && (
+                <div className="bg-slate-50 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/80 rounded-2xl p-3 text-xs text-slate-500 dark:text-slate-400">
+                  <span>Destino: </span>
+                  <strong className="text-slate-800 dark:text-slate-200 font-bold">
+                    {pendingNavigation.type === 'activity' && getActivityDisplayName(pendingNavigation.value)}
+                    {pendingNavigation.type === 'level' && `Nivel ${pendingNavigation.value}`}
+                    {pendingNavigation.type === 'category' && `Categoría "${pendingNavigation.value}"`}
+                  </strong>
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={cancelExit}
+                  className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold py-3 rounded-2xl text-xs sm:text-sm transition-all shadow-md active:scale-95 cursor-pointer"
+                >
+                  Continuar Practicando
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmExit}
+                  className="w-full bg-slate-100 hover:bg-rose-50 dark:bg-slate-800 dark:hover:bg-rose-950/50 text-slate-700 hover:text-rose-600 dark:text-slate-300 dark:hover:text-rose-400 font-extrabold py-3 rounded-2xl text-xs sm:text-sm border border-slate-200 hover:border-rose-200 dark:border-slate-700 dark:hover:border-rose-800 transition-all active:scale-95 cursor-pointer"
+                >
+                  Sí, Salir
+                </button>
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

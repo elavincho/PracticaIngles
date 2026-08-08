@@ -124,16 +124,30 @@ export const recordActivityScore = async (req, res) => {
     user.points += pointsEarned || 10;
     if (studySeconds) user.studyTimeMinutes += Math.round(studySeconds / 60);
 
-    // Calculate today words count in DB
-    const todayStr = new Date().toISOString().slice(0, 10);
+    // Calculate today words count and streak in DB
+    const now = new Date();
+    const todayStr = now.toISOString().slice(0, 10);
     const lastStr = user.lastStudyDate ? new Date(user.lastStudyDate).toISOString().slice(0, 10) : '';
     const wordAdd = matchedWords || correctSentences || correctWords || 20;
 
-    if (todayStr === lastStr) {
-      user.todayWordsCount = (user.todayWordsCount || 0) + wordAdd;
-    } else {
+    if (todayStr !== lastStr) {
+      // New day activity! Increment streak if studied yesterday or first time
+      if (user.lastStudyDate) {
+        const prevDate = new Date(user.lastStudyDate);
+        const diffTime = Math.abs(now.getTime() - prevDate.getTime());
+        const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        if (diffDays <= 2) {
+          user.streak = (user.streak || 0) + 1;
+        } else {
+          user.streak = 1;
+        }
+      } else {
+        user.streak = 1;
+      }
       user.todayWordsCount = wordAdd;
-      user.lastStudyDate = new Date();
+      user.lastStudyDate = now;
+    } else {
+      user.todayWordsCount = (user.todayWordsCount || 0) + wordAdd;
     }
 
     if (categoryCompleted && !user.completedCategories.includes(categoryCompleted)) {

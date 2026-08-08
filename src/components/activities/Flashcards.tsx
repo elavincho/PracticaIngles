@@ -1,20 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { VocabularyWord } from '../../types';
-import { Volume2, RotateCw, CheckCircle2, XCircle, Sparkles, VolumeX, Gauge, Play } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { Volume2, RotateCw, CheckCircle2, XCircle, Sparkles, VolumeX, Gauge, Play, Trophy, PartyPopper, Award } from 'lucide-react';
+import { triggerLevelCelebration } from '../../utils/celebration';
+import { motion } from 'motion/react';
 
 interface FlashcardsProps {
   words: VocabularyWord[];
   onComplete: (earnedPoints: number, accuracy: number) => void;
+  onProgressChange?: (inProgress: boolean) => void;
 }
 
-export const Flashcards: React.FC<FlashcardsProps> = ({ words, onComplete }) => {
+export const Flashcards: React.FC<FlashcardsProps> = ({ words, onComplete, onProgressChange }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
   const [knownCount, setKnownCount] = useState(0);
   const [completed, setCompleted] = useState(false);
   const [imageError, setImageError] = useState(false);
   const [imageLoaded, setImageLoaded] = useState(false);
+
+  // Notify parent component about activity progress status
+  useEffect(() => {
+    if (onProgressChange) {
+      onProgressChange(!completed);
+    }
+  }, [completed, onProgressChange]);
 
   // Audio Speech States
   const [speechRate, setSpeechRate] = useState<number>(0.85); // 0.85x Normal, 0.5x Lento
@@ -94,7 +103,7 @@ export const Flashcards: React.FC<FlashcardsProps> = ({ words, onComplete }) => 
       const accuracy = Math.round((finalKnown / words.length) * 100);
       const points = finalKnown * 15 + (accuracy >= 80 ? 50 : 10);
       
-      confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+      triggerLevelCelebration();
       setCompleted(true);
       onComplete(points, accuracy);
     }
@@ -102,29 +111,81 @@ export const Flashcards: React.FC<FlashcardsProps> = ({ words, onComplete }) => 
 
   if (completed) {
     const accuracy = Math.round((knownCount / words.length) * 100);
+    const xpEarned = (knownCount * 15) + (accuracy >= 80 ? 50 : 10);
+
     return (
-      <div className="flex flex-col items-center justify-center p-8 text-center bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xl space-y-4">
-        <div className="w-16 h-16 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 rounded-full flex items-center justify-center">
-          <Sparkles className="w-8 h-8 animate-bounce" />
-        </div>
-        <h3 className="text-2xl font-black text-slate-900 dark:text-white">¡Sesión de Flashcards Completada!</h3>
-        <p className="text-sm text-slate-600 dark:text-slate-300">
-          Dominaste <span className="font-bold text-emerald-600">{knownCount}</span> de <span className="font-bold">{words.length}</span> palabras ({accuracy}% precisión).
-        </p>
-        <div className="bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-200 dark:border-indigo-800 rounded-2xl px-6 py-3 font-bold text-indigo-700 dark:text-indigo-300">
-          +{(knownCount * 15) + (accuracy >= 80 ? 50 : 10)} XP Ganados
-        </div>
-        <button
-          onClick={() => {
-            setCurrentIndex(0);
-            setKnownCount(0);
-            setCompleted(false);
-          }}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-2.5 rounded-full text-sm transition-all shadow-md active:scale-95 cursor-pointer"
+      <motion.div 
+        initial={{ scale: 0.85, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ type: 'spring', damping: 18, stiffness: 200 }}
+        className="flex flex-col items-center justify-center p-8 text-center bg-gradient-to-b from-white to-slate-50 dark:from-slate-900 dark:to-slate-950 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-2xl space-y-5 max-w-lg mx-auto relative overflow-hidden"
+      >
+        {/* Background glow particle accent */}
+        <div className="absolute -top-12 -left-12 w-32 h-32 bg-indigo-500/10 rounded-full blur-2xl pointer-events-none" />
+        <div className="absolute -bottom-12 -right-12 w-32 h-32 bg-emerald-500/10 rounded-full blur-2xl pointer-events-none" />
+
+        {/* Floating Trophy Icon with Pulse Ring */}
+        <motion.div 
+          initial={{ scale: 0 }}
+          animate={{ scale: 1, rotate: [0, -10, 10, 0] }}
+          transition={{ delay: 0.1, duration: 0.6, type: 'spring' }}
+          className="relative"
         >
-          Repetir Práctica
-        </button>
-      </div>
+          <div className="w-20 h-20 bg-amber-500/10 dark:bg-amber-500/20 text-amber-500 rounded-2xl flex items-center justify-center shadow-lg border border-amber-500/30">
+            <Trophy className="w-10 h-10 animate-pulse" />
+          </div>
+          <span className="absolute -top-2 -right-2 bg-emerald-500 text-white rounded-full p-1 shadow-md">
+            <Sparkles className="w-4 h-4 animate-spin" />
+          </span>
+        </motion.div>
+
+        <div className="space-y-1">
+          <span className="text-[11px] font-extrabold uppercase tracking-widest text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/60 px-3 py-1 rounded-full border border-emerald-200 dark:border-emerald-800">
+            ¡Nivel Completado con Éxito!
+          </span>
+          <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white tracking-tight pt-1">
+            ¡Sesión de Flashcards Superada!
+          </h3>
+        </div>
+
+        <p className="text-sm text-slate-600 dark:text-slate-300 max-w-sm">
+          Has dominado <span className="font-extrabold text-emerald-600 dark:text-emerald-400">{knownCount}</span> de <span className="font-extrabold text-slate-900 dark:text-white">{words.length}</span> tarjetas con un <span className="font-extrabold text-indigo-600 dark:text-indigo-400">{accuracy}%</span> de precisión.
+        </p>
+
+        {/* XP Badge */}
+        <div className="flex items-center space-x-3 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-200 dark:border-indigo-800/80 rounded-2xl px-6 py-3 shadow-inner">
+          <Award className="w-6 h-6 text-indigo-600 dark:text-indigo-400" />
+          <div className="text-left">
+            <span className="text-[10px] font-extrabold text-indigo-500 dark:text-indigo-400 uppercase tracking-wider block">Recompensa Obtenida</span>
+            <span className="text-lg font-black text-indigo-700 dark:text-indigo-300">+{xpEarned} XP de Experiencia</span>
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div className="flex flex-col sm:flex-row items-center gap-3 w-full pt-2">
+          <button
+            type="button"
+            onClick={() => triggerLevelCelebration()}
+            className="w-full sm:w-auto bg-amber-500 hover:bg-amber-600 text-white font-extrabold px-5 py-2.5 rounded-full text-xs transition-all shadow-md active:scale-95 flex items-center justify-center space-x-1.5 cursor-pointer"
+          >
+            <PartyPopper className="w-4 h-4" />
+            <span>¡Lanzar Confeti!</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => {
+              setCurrentIndex(0);
+              setKnownCount(0);
+              setCompleted(false);
+            }}
+            className="w-full sm:w-auto flex-1 bg-indigo-600 hover:bg-indigo-700 text-white font-extrabold px-6 py-2.5 rounded-full text-xs transition-all shadow-md active:scale-95 cursor-pointer flex items-center justify-center space-x-1.5"
+          >
+            <RotateCw className="w-4 h-4" />
+            <span>Repetir Práctica</span>
+          </button>
+        </div>
+      </motion.div>
     );
   }
 

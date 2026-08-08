@@ -1,20 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { VocabularyWord } from '../../types';
 import { Volume2, Sparkles, CheckCircle2, XCircle, Ear } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { triggerLevelCelebration } from '../../utils/celebration';
 
 interface ListeningActivityProps {
   words: VocabularyWord[];
   onComplete: (earnedPoints: number, accuracy: number, details?: { attempts?: number; moves?: number; correctSentences?: number; correctWords?: number; matchedWords?: number }) => void;
+  onProgressChange?: (inProgress: boolean) => void;
 }
 
-export const ListeningActivity: React.FC<ListeningActivityProps> = ({ words, onComplete }) => {
+export const ListeningActivity: React.FC<ListeningActivityProps> = ({ words, onComplete, onProgressChange }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [options, setOptions] = useState<string[]>([]);
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [score, setScore] = useState(0);
   const [completed, setCompleted] = useState(false);
+
+  // Notify parent component about activity progress status
+  useEffect(() => {
+    if (onProgressChange) {
+      onProgressChange(!completed);
+    }
+  }, [completed, onProgressChange]);
 
   if (!words || words.length === 0) return null;
 
@@ -61,7 +69,7 @@ export const ListeningActivity: React.FC<ListeningActivityProps> = ({ words, onC
       } else {
         const finalScore = isCorrect ? score + 1 : score;
         const accuracy = Math.round((finalScore / words.length) * 100);
-        confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
+        triggerLevelCelebration();
         setCompleted(true);
         onComplete(finalScore * 25, accuracy, { correctWords: finalScore });
       }

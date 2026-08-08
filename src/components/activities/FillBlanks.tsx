@@ -1,20 +1,28 @@
 import React, { useState, useEffect } from 'react';
 import { VocabularyWord } from '../../types';
 import { Sparkles, CheckCircle2, XCircle, ArrowRight, Lightbulb } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { triggerLevelCelebration } from '../../utils/celebration';
 
 interface FillBlanksProps {
   words: VocabularyWord[];
   onComplete: (earnedPoints: number, accuracy: number, details?: { attempts?: number; moves?: number; correctSentences?: number; correctWords?: number; matchedWords?: number }) => void;
+  onProgressChange?: (inProgress: boolean) => void;
 }
 
-export const FillBlanks: React.FC<FillBlanksProps> = ({ words, onComplete }) => {
+export const FillBlanks: React.FC<FillBlanksProps> = ({ words, onComplete, onProgressChange }) => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [userInput, setUserInput] = useState('');
   const [feedback, setFeedback] = useState<'correct' | 'incorrect' | null>(null);
   const [score, setScore] = useState(0);
   const [completed, setCompleted] = useState(false);
   const [showHint, setShowHint] = useState(false);
+
+  // Notify parent component about activity progress status
+  useEffect(() => {
+    if (onProgressChange) {
+      onProgressChange(!completed);
+    }
+  }, [completed, onProgressChange]);
 
   if (!words || words.length === 0) return null;
 
@@ -35,7 +43,7 @@ export const FillBlanks: React.FC<FillBlanksProps> = ({ words, onComplete }) => 
       setCurrentIndex(prev => prev + 1);
     } else {
       const accuracy = Math.round((currentScore / words.length) * 100);
-      confetti({ particleCount: 75, spread: 65, origin: { y: 0.6 } });
+      triggerLevelCelebration();
       setCompleted(true);
       onComplete(currentScore * 20, accuracy, { correctSentences: currentScore });
     }

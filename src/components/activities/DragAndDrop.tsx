@@ -1,16 +1,17 @@
 import React, { useState, useEffect } from 'react';
 import { VocabularyWord } from '../../types';
-import { Sparkles, Check, ChevronRight } from 'lucide-react';
-import confetti from 'canvas-confetti';
+import { Sparkles, Check, ChevronRight, Trophy, PartyPopper } from 'lucide-react';
+import { triggerLevelCelebration } from '../../utils/celebration';
 
 interface DragAndDropProps {
   words: VocabularyWord[];
   onComplete: (earnedPoints: number, accuracy: number, details?: { attempts?: number; moves?: number; correctSentences?: number; correctWords?: number; matchedWords?: number }) => void;
+  onProgressChange?: (inProgress: boolean) => void;
 }
 
 const BATCH_SIZE = 5;
 
-export const DragAndDrop: React.FC<DragAndDropProps> = ({ words, onComplete }) => {
+export const DragAndDrop: React.FC<DragAndDropProps> = ({ words, onComplete, onProgressChange }) => {
   const [currentRound, setCurrentRound] = useState(0);
   const [selectedWord, setSelectedWord] = useState<string | null>(null);
   const [matches, setMatches] = useState<Record<string, string>>({}); // word -> translation
@@ -19,6 +20,13 @@ export const DragAndDrop: React.FC<DragAndDropProps> = ({ words, onComplete }) =
   const [completed, setCompleted] = useState(false);
   const [currentBatch, setCurrentBatch] = useState<VocabularyWord[]>([]);
   const [totalMatchedCount, setTotalMatchedCount] = useState(0);
+
+  // Notify parent component about activity progress status
+  useEffect(() => {
+    if (onProgressChange) {
+      onProgressChange(!completed);
+    }
+  }, [completed, onProgressChange]);
 
   const totalRounds = Math.ceil((words?.length || 0) / BATCH_SIZE) || 1;
 
@@ -74,7 +82,7 @@ export const DragAndDrop: React.FC<DragAndDropProps> = ({ words, onComplete }) =
           const finalAttempts = totalAttempts + 1;
           const accuracy = Math.round((words.length / Math.max(words.length, finalAttempts)) * 100);
           const points = words.length * 15 + (accuracy >= 80 ? 50 : 10);
-          confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+          triggerLevelCelebration();
           setCompleted(true);
           onComplete(points, accuracy, { attempts: finalAttempts, matchedWords: words.length });
         }
