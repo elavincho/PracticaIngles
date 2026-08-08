@@ -126,7 +126,7 @@ export const DragAndDrop: React.FC<DragAndDropProps> = ({ words, onComplete }) =
       <div className="flex flex-col sm:flex-row justify-between items-center bg-slate-50 dark:bg-slate-800/60 p-3 rounded-2xl border border-slate-200 dark:border-slate-700 gap-2">
         <div>
           <h3 className="text-sm font-extrabold text-slate-900 dark:text-white flex items-center space-x-1.5">
-            <span>Arrastra o Toca para Emparejar</span>
+            <span>Toca para Emparejar</span>
             <span className="text-[10px] bg-indigo-100 dark:bg-indigo-950 text-indigo-700 dark:text-indigo-300 px-2 py-0.5 rounded-full font-bold">
               {words.length} palabras totales
             </span>

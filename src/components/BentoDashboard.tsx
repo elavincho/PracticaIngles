@@ -20,7 +20,6 @@ import {
   Ear,
   Target,
   Trophy,
-  Search,
   ChevronRight,
   ArrowRight,
   Check,
@@ -50,7 +49,6 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
   const [loadingLeaderboard, setLoadingLeaderboard] = useState<boolean>(false);
 
   const [loading, setLoading] = useState<boolean>(true);
-  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const isUserInitialized = useRef(false);
 
@@ -115,7 +113,7 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
     setLoading(true);
     try {
       const [words, cats] = await Promise.all([
-        api.getVocabulary(activeLevel, activeCategory || undefined, searchQuery || undefined),
+        api.getVocabulary(activeLevel, activeCategory || undefined),
         api.getCategories()
       ]);
       setVocabulary(words);
@@ -125,7 +123,7 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
       const levelCats = cats.filter(c => c.level === activeLevel);
       if (levelCats.length > 0) {
         const isCurrentInLevel = levelCats.some(c => c.name === activeCategory);
-        if (!isCurrentInLevel && !searchQuery) {
+        if (!isCurrentInLevel) {
           setActiveCategory(levelCats[0].name);
         }
       } else if (cats.length > 0 && !activeCategory) {
@@ -140,7 +138,7 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
 
   useEffect(() => {
     loadData();
-  }, [activeLevel, activeCategory, searchQuery]);
+  }, [activeLevel, activeCategory]);
 
   const handleActivityComplete = async (
     earnedPoints: number,
@@ -240,17 +238,11 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
 
   return (
     <div className="w-full max-w-7xl mx-auto px-4 py-6 space-y-6">
-      {/* Search & Quick Filter Bar */}
+      {/* Quick Level Filter Bar */}
       <div className="flex flex-col sm:flex-row gap-3 justify-between items-center bg-white dark:bg-slate-900 p-4 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-xs">
-        <div className="relative w-full sm:w-80">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-3.5" />
-          <input
-            type="text"
-            placeholder="Buscar cualquier palabra A1..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-full pl-10 pr-4 py-2 text-xs font-semibold text-slate-900 dark:text-white outline-none focus:ring-2 focus:ring-indigo-500"
-          />
+        <div className="flex items-center space-x-2 text-xs font-bold text-slate-700 dark:text-slate-300">
+          <BookOpen className="w-4 h-4 text-indigo-600 dark:text-indigo-400" />
+          <span>Selecciona un Nivel A1:</span>
         </div>
 
         {/* Level Badges Selector Pill */}
@@ -263,11 +255,11 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
                 key={levelNum}
                 onClick={() => isUnlocked && setActiveLevel(levelNum)}
                 disabled={!isUnlocked}
-                className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold flex items-center space-x-1 transition-all border whitespace-nowrap ${
+                className={`px-3.5 py-1.5 rounded-full text-xs font-extrabold flex items-center space-x-1 transition-all border whitespace-nowrap cursor-pointer ${
                   isActive
                     ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
                     : isUnlocked
-                    ? 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100'
+                    ? 'bg-slate-50 dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
                     : 'bg-slate-100 dark:bg-slate-800/40 text-slate-400 border-slate-200 dark:border-slate-800 cursor-not-allowed opacity-60'
                 }`}
               >
@@ -369,7 +361,7 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
                 }`}
               >
                 <BookOpen className="w-3.5 h-3.5" />
-                <span>Flashcards ({vocabulary.length})</span>
+                <span>Flashcards</span>
               </button>
 
               <button
@@ -381,7 +373,7 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
                 }`}
               >
                 <Puzzle className="w-3.5 h-3.5" />
-                <span>Arrastrar ({vocabulary.length})</span>
+                <span>Emparejar</span>
               </button>
 
               <button
@@ -393,7 +385,7 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
                 }`}
               >
                 <Brain className="w-3.5 h-3.5" />
-                <span>Memoria ({vocabulary.length})</span>
+                <span>Memoria</span>
               </button>
 
               <button
@@ -666,7 +658,7 @@ export const BentoDashboard: React.FC<BentoDashboardProps> = ({ user, onUpdateUs
                   <Layers className="w-4 h-4" />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-slate-900 dark:text-white leading-tight">2. Arrastrar y Soltar</h4>
+                  <h4 className="text-xs font-black text-slate-900 dark:text-white leading-tight">2. Emparejar</h4>
                   <span className="text-[10px] text-slate-400 font-medium block">Intentos Acumulados Nivel {rankingLevel}</span>
                 </div>
               </div>

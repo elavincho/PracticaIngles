@@ -10,7 +10,11 @@ import { Database, AlertTriangle } from 'lucide-react';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
-  const [darkMode, setDarkMode] = useState<boolean>(false);
+  const [darkMode, setDarkMode] = useState<boolean>(() => {
+    const saved = localStorage.getItem('vocab_theme');
+    if (saved) return saved === 'dark';
+    return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+  });
   const [isAuthOpen, setIsAuthOpen] = useState<boolean>(false);
   const [currentView, setCurrentView] = useState<'student' | 'admin'>('student');
   const [dbConnected, setDbConnected] = useState<boolean>(true);
@@ -38,8 +42,10 @@ export default function App() {
   useEffect(() => {
     if (darkMode) {
       document.documentElement.classList.add('dark');
+      localStorage.setItem('vocab_theme', 'dark');
     } else {
       document.documentElement.classList.remove('dark');
+      localStorage.setItem('vocab_theme', 'light');
     }
   }, [darkMode]);
 
